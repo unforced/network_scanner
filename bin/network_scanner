@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+
+require 'network_scanner'
+require 'optparse'
+
+options = {}
+OptionParser.new do |opts|
+  opts.on('--cache FILE', String, 'Caches the IPs on the network in FILE') do |file|
+    options[:cache] = file
+  end
+
+  opts.on('--interface INTERFACE', String, 'Specifys interface to scan') do |interface|
+    options[:interface] = interface
+  end
+
+  opts.on('--portscan PORT', Integer, 'Port to scan for') do |port|
+    options[:port] = port
+  end
+
+  opts.on('--cacheread FILE', String, 'Cache to read ips from') do |file|
+    options[:cacheread] = file
+  end
+
+  opts.on('--poolsize POOLSIZE', Integer, 'Specify thread pool size (default 100)') do |pool|
+    options[:pool] = pool
+  end
+
+  opts.on_tail('--help', 'Show help message') do
+    puts opts
+    exit
+  end
+end.parse!
+
+
+network_scanner = NetworkScanner.new
+if options[:pool]
+  network_scanner.pool_size = options[:pool]
+end
+
+if options[:interface]
+  network_scanner.get_ips(options[:interface])
+end
+
+if options[:cache]
+  network_scanner.cache(options[:cache])
+end
+
+if options[:cacheread]
+  network_scanner.cacheread(options[:cacheread])
+end
+
+if options[:port]
+  network_scanner.check_ports(options[:port])
+end
