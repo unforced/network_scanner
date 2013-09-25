@@ -191,5 +191,44 @@ module NetworkScanner
 
       return @ips
     end
+
+    def check_hostnames
+      raise Exception.new("Must scan ips first (Specify an interface or cacheread)") unless @ips_to_check
+
+      puts "Scanning for hostnames out of a total of #{@ips_to_check.length} ips"
+
+      if self.output_name
+        out = File.open(self.output_name, 'w')
+      else
+        out = STDOUT
+      end
+
+      pool = Thread.pool(@pool_size)
+
+      @ip_hosts = []
+
+      @ips_to_check.each do |ip|
+        pool.process do
+          scan = `nslookup #{ip}`
+          hostname = scan[/name\ =\ (.*)\n/, 1]
+          if hostname
+            @ip_hosts << [ip, hostname]
+            if text?
+              out.print "#{hostname} => #{ip}\n"
+            end
+          end
+        end
+      end
+
+      pool.shutdown
+
+      if json?
+        out.puts(JSON.pretty_generate(@ip_hosts))
+      end
+
+      out.close unless out == STDOUT
+
+      return @ip_hosts
+    end
   end
 end

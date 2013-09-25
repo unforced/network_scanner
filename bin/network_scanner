@@ -33,8 +33,17 @@ OptionParser.new do |opts|
     options[:port] = port
   end
 
+  opts.on('-n', '--nslookup', 'Lookup hostnames of machines') do
+    options[:nslookup] = true
+  end
+
   opts.on('-o', '--output OUTPUTFILE', String, 'File to output to') do |file|
     options[:output] = file
+  end
+
+  opts.on_tail('-v', '--version', 'Show version number') do
+    puts NetworkScanner::VERSION
+    exit
   end
 
   opts.on_tail('-h', '--help', 'Show help message') do
@@ -80,4 +89,8 @@ end
 
 if options[:port]
   network_scanner.check_ports(options[:port])
+end
+
+if options[:nslookup]
+  network_scanner.check_hostnames
 end
