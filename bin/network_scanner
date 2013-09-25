@@ -5,12 +5,16 @@ require 'optparse'
 
 options = {}
 OptionParser.new do |opts|
-  opts.on('--cache FILE', String, 'Caches the IPs on the network in FILE') do |file|
+  opts.on('--cache FILE', String, 'Caches the IPs up on the network in FILE for quicker scanning') do |file|
     options[:cache] = file
   end
 
   opts.on('--interface INTERFACE', String, 'Specifys interface to scan') do |interface|
     options[:interface] = interface
+  end
+
+  opts.on('--range RANGE', String, 'Specify a range to scan(192.168.1.100-192.168.1.200)') do |range|
+    options[:range] = range
   end
 
   opts.on('--portscan PORT', Integer, 'Port to scan for') do |port|
@@ -38,7 +42,11 @@ if options[:pool]
 end
 
 if options[:interface]
-  network_scanner.get_ips(options[:interface])
+  network_scanner.get_interface_ips(options[:interface])
+end
+
+if options[:range]
+  network_scanner.get_range_ips(options[:range])
 end
 
 if options[:cache]

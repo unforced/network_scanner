@@ -17,7 +17,7 @@ end
 
 module NetworkScanner
   class << self
-    # Avoids the user having to deal with namespacing. This is probably hacky
+    # Prevents the user from having to deal with namespacing. This is probably hacky
     def new(*args)
       Scanner.new(*args)
     end
@@ -30,7 +30,7 @@ module NetworkScanner
       @pool_size = 100
     end
 
-    def get_ips(interface)
+    def get_interface_ips(interface)
       ifconfig = `ifconfig`.split("\n\n").index_by{|x| x[/\w+/,0]}
       inet = ifconfig[interface][/inet addr:([^\s]*)/, 1].split('.')
       broadcast = ifconfig[interface][/Bcast:([^\s]*)/, 1].split('.')
@@ -45,27 +45,59 @@ module NetworkScanner
       second_range = start_second..broadcast[1].to_i
       third_range = start_third..broadcast[2].to_i
       fourth_range = start_fourth..broadcast[3].to_i
-
-      @ips = []
-
-      pool = Thread.pool(@pool_size)
-
-      ips_to_check = []
+      
+      @ips_to_check = []
 
       first_range.each do |first|
         second_range.each do |second|
           third_range.each do |third|
             fourth_range.each do |fourth|
-              ips_to_check << "#{first}.#{second}.#{third}.#{fourth}"
+              @ips_to_check << "#{first}.#{second}.#{third}.#{fourth}"
             end
           end
         end
       end
 
-      puts "Checking for ips in (#{first_range}).(#{second_range}).(#{third_range}).(#{fourth_range})"
-      ips_to_check.each do |ip|
+      puts "Checking ips in (#{first_range}).(#{second_range}).(#{third_range}).(#{fourth_range})"
+      @ips = @ips_to_check
+      return @ips_to_check
+    end
+
+    def get_range_ips(range)
+      start, finish = range.split('-', 2).map{|ip| ip.split('.')}
+      first_range = start[0]..finish[0]
+      second_range = start[1]..finish[1]
+      third_range = start[2]..finish[2]
+      fourth_range = start[3]..finish[3]
+
+      @ips_to_check = []
+
+      first_range.each do |first|
+        second_range.each do |second|
+          third_range.each do |third|
+            fourth_range.each do |fourth|
+              @ips_to_check << "#{first}.#{second}.#{third}.#{fourth}"
+            end
+          end
+        end
+      end
+
+      puts "Checking ips in (#{first_range}).(#{second_range}).(#{third_range}).(#{fourth_range})"
+      @ips = @ips_to_check
+      return @ips_to_check
+    end
+
+    def get_ips
+      raise Exception.new("Must specify an interface to get ips to check") unless @ips_to_check
+
+      @ips = []
+
+      pool = Thread.pool(@pool_size)
+
+      @ips_to_check.each do |ip|
         pool.process do
-          @ips << ip if system("ping -c 1 #{ip} >> /dev/null")
+          # For some reason &> isn't working, so pipe stdout and then stderr
+          @ips << ip if system("ping -c 1 #{ip} >> /dev/null 2> /dev/null")
         end
       end
 
@@ -85,32 +117,25 @@ module NetworkScanner
     end
 
     def check_ports(port)
-      queue = Queue.new
+      raise Exception.new("Must scan ips first (Specify an interface or cacheread)") unless @ips
 
       puts "Checking for ports out of a total of #{@ips.length} ips"
 
+      pool = Thread.pool(@pool_size)
+
       @ips.each do |ip|
-        queue << ip
-      end
-
-      pool = Thread.pool(200)
-
-      until(queue.empty?)
         pool.process do
-          unless queue.empty?
-            ip = queue.pop
-            puts ip if port_open?(ip, port)
-          end
+          puts ip if port_open?(ip, port)
         end
       end
 
-      pool.shutdown unless pool.done?
+      pool.shutdown
     end
 
     def cache(file)
-      if !@ips
-        raise Exception.new("Must scan ips before caching (Specify an interface)")
-      end
+      raise Exception.new("Must scan ips first (Specify an interface or cacheread)") unless @ips
+      get_ips
+
       File.open(file, 'w'){|f| f.puts(JSON.pretty_generate(@ips))}
     end
 
