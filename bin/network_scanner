@@ -52,6 +52,16 @@ OptionParser.new do |opts|
   end
 end.parse!
 
+def one_of?(options, *args)
+  if (options.keys & args).length != 1
+    puts "Must specify one of #{args}. Try `network_scanner -h` for help"
+    exit
+  end
+end
+
+one_of?(options, :interface, :range, :cache)
+one_of?(options, :ping, :port, :nslookup)
+
 network_scanner = NetworkScanner.new
 if options[:pool]
   unless options[:pool] > 0
