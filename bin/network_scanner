@@ -5,40 +5,61 @@ require 'optparse'
 
 options = {}
 OptionParser.new do |opts|
-  opts.on('--cache FILE', String, 'Caches the IPs up on the network in FILE for quicker scanning') do |file|
-    options[:cache] = file
+  opts.on('-f', '--format FORMAT', String, 'Format to read/write (text/json). Defaults to text') do |format|
+    options[:format] = format
   end
 
-  opts.on('--interface INTERFACE', String, 'Specifys interface to scan') do |interface|
-    options[:interface] = interface
-  end
-
-  opts.on('--range RANGE', String, 'Specify a range to scan(192.168.1.100-192.168.1.200)') do |range|
-    options[:range] = range
-  end
-
-  opts.on('--portscan PORT', Integer, 'Port to scan for') do |port|
-    options[:port] = port
-  end
-
-  opts.on('--cacheread FILE', String, 'Cache to read ips from') do |file|
-    options[:cacheread] = file
-  end
-
-  opts.on('--poolsize POOLSIZE', Integer, 'Specify thread pool size (default 100)') do |pool|
+  opts.on('-s', '--poolsize POOLSIZE', Integer, 'Specify thread pool size (default 100)') do |pool|
     options[:pool] = pool
   end
 
-  opts.on_tail('--help', 'Show help message') do
+  opts.on('-i', '--interface INTERFACE', String, 'Specifys interface to scan') do |interface|
+    options[:interface] = interface
+  end
+
+  opts.on('-r', '--range RANGE', String, 'Specify a range to scan(192.168.1.100-192.168.1.200)') do |range|
+    options[:range] = range
+  end
+
+  opts.on('-c', '--cache FILE', String, 'Cache to read ips from') do |file|
+    options[:cache] = file
+  end
+
+  opts.on('-P', '--ping', 'Checks for all machines that respond to ping') do
+    options[:ping] = true
+  end
+
+  opts.on('-p', '--portscan PORT', Integer, 'Port to scan for') do |port|
+    options[:port] = port
+  end
+
+  opts.on('-o', '--output OUTPUTFILE', String, 'File to output to') do |file|
+    options[:output] = file
+  end
+
+  opts.on_tail('-h', '--help', 'Show help message') do
     puts opts
     exit
   end
 end.parse!
 
-
 network_scanner = NetworkScanner.new
 if options[:pool]
+  unless options[:pool] > 0
+    raise ArgumentError.new('Specify a pool size greater than 0')
+  end
   network_scanner.pool_size = options[:pool]
+end
+
+if options[:format]
+  unless ['text','json'].include?(options[:format])
+    raise ArgumentError.new('Specify either text or json as a format')
+  end
+  network_scanner.format = options[:format]
+end
+
+if options[:output]
+  network_scanner.output_name = options[:output]
 end
 
 if options[:interface]
@@ -50,11 +71,11 @@ if options[:range]
 end
 
 if options[:cache]
-  network_scanner.cache(options[:cache])
+  network_scanner.get_cache_ips(options[:cache])
 end
 
-if options[:cacheread]
-  network_scanner.cacheread(options[:cacheread])
+if options[:ping]
+  network_scanner.check_pings
 end
 
 if options[:port]

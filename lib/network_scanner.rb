@@ -24,10 +24,19 @@ module NetworkScanner
   end
 
   class Scanner
-    attr_accessor :pool_size
+    attr_accessor :pool_size, :format, :output_name
 
     def initialize(opts = {})
       @pool_size = 100
+      @format = 'text'
+    end
+    
+    def text?
+      @format == 'text'
+    end
+
+    def json?
+      @format == 'json'
     end
 
     def get_interface_ips(interface)
@@ -59,7 +68,6 @@ module NetworkScanner
       end
 
       puts "Checking ips in (#{first_range}).(#{second_range}).(#{third_range}).(#{fourth_range})"
-      @ips = @ips_to_check
       return @ips_to_check
     end
 
@@ -83,25 +91,56 @@ module NetworkScanner
       end
 
       puts "Checking ips in (#{first_range}).(#{second_range}).(#{third_range}).(#{fourth_range})"
-      @ips = @ips_to_check
       return @ips_to_check
     end
 
-    def get_ips
-      raise Exception.new("Must specify an interface to get ips to check") unless @ips_to_check
+    def get_cache_ips(file)
+      @ips_to_check = []
+
+      if text?
+        File.open(file).each_line do |ip|
+          @ips_to_check << ip
+        end
+      elsif json?
+        JSON.parse(File.read(file)).each do |ip|
+          @ips_to_check << ip
+        end
+      end
+      return @ips_to_check
+    end
+
+    def check_pings
+      raise Exception.new("Must specify ips to check(interface/range/cache)") unless @ips_to_check
 
       @ips = []
 
       pool = Thread.pool(@pool_size)
 
+      if self.output_name
+        out = File.open(self.output_name, 'w')
+      else
+        out = STDOUT
+      end
+
       @ips_to_check.each do |ip|
         pool.process do
           # For some reason &> isn't working, so pipe stdout and then stderr
-          @ips << ip if system("ping -c 1 #{ip} >> /dev/null 2> /dev/null")
+          if system("ping -c 1 #{ip} >> /dev/null 2> /dev/null")
+            @ips << ip
+            if text?
+              out.print "#{ip}\n"
+            end
+          end
         end
       end
 
       pool.shutdown
+
+      if json?
+        out.puts(JSON.pretty_generate(@ips))
+      end
+
+      out.close unless out == STDOUT
 
       return @ips
     end
@@ -117,30 +156,40 @@ module NetworkScanner
     end
 
     def check_ports(port)
-      raise Exception.new("Must scan ips first (Specify an interface or cacheread)") unless @ips
+      raise Exception.new("Must scan ips first (Specify an interface or cacheread)") unless @ips_to_check
 
-      puts "Checking for ports out of a total of #{@ips.length} ips"
+      puts "Checking for ports out of a total of #{@ips_to_check.length} ips"
+
+      if self.output_name
+        out = File.open(self.output_name, 'w')
+      else
+        out = STDOUT
+      end
 
       pool = Thread.pool(@pool_size)
 
-      @ips.each do |ip|
+      @ips = []
+
+      @ips_to_check.each do |ip|
         pool.process do
-          puts ip if port_open?(ip, port)
+          if port_open?(ip, port)
+            @ips << ip
+            if text?
+              out.print "#{ip}\n"
+            end
+          end
         end
       end
 
       pool.shutdown
-    end
 
-    def cache(file)
-      raise Exception.new("Must scan ips first (Specify an interface or cacheread)") unless @ips
-      get_ips
+      if json?
+        out.puts(JSON.pretty_generate(@ips))
+      end
 
-      File.open(file, 'w'){|f| f.puts(JSON.pretty_generate(@ips))}
-    end
+      out.close unless out == STDOUT
 
-    def cacheread(file)
-      @ips = JSON.parse(File.read(file))
+      return @ips
     end
   end
 end
