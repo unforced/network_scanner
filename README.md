@@ -22,8 +22,8 @@ can pass an argument to have it write directly to a file.
 # Output help text
 network_scanner -h
 
-# Scans your subnet for machines that respond to pings
-network_scanner --interface wlan0 --ping --portscan 80
+# Scans your subnet for machines that respond to pings with a pool size of 300
+network_scanner --interface wlan0 --poolsize 300 --ping
 network_scanner -i wlan0 -s 300 -P
 
 # Checks the hostname on a range of ip's, outputting json to a file
