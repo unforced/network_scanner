@@ -18,6 +18,8 @@ can pass an argument to have it write directly to a file.
 
 ## Usage
 
+Currently, the interface option only works on Linux
+
 ```
 # Output help text
 network_scanner -h
